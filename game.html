@@ -556,6 +556,9 @@
           elapsedSeconds += 1;
           timerEl.textContent = formatTime(elapsedSeconds);
         }, 1000);
+        // per-game unique fact queue
+        availableFacts = shuffle((facts[topic] || []).slice());
+
         buildDeck();
         renderBoard();
         resetPick();
@@ -575,9 +578,6 @@
       playAgainBtn.addEventListener("click", () => {
         resetGame();
       });
-
-      // init
-      resetGame();
 
       /* Facts data and modal helpers */
       const facts = {
@@ -619,13 +619,10 @@
         ],
       };
 
-      function randomItem(arr) {
-        return arr[Math.floor(Math.random() * arr.length)];
-      }
-
       function showRandomFact() {
-        const set = facts[topic] || facts.animals;
-        const fact = randomItem(set);
+        // Take next fact from the queue; if empty, show nothing
+        const fact = availableFacts.shift();
+        if (!fact) return;
         modalText.textContent = fact;
         openModal();
       }
@@ -688,6 +685,9 @@
         const s = totalSeconds % 60;
         return `${m}:${String(s).padStart(2, "0")}`;
       }
+
+      // init
+      resetGame();
     </script>
   </body>
 </html>
