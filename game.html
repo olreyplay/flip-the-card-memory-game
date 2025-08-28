@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Flip Card Memory Game - Play</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700&family=Fredoka:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      .game-shell {
+        min-height: 100vh;
+        display: grid;
+        grid-template-rows: auto 1fr;
+        justify-items: center;
+        padding: 24px 16px 48px;
+      }
+      .game-header {
+        text-align: center;
+      }
+      .back-link {
+        display: inline-block;
+        margin-top: 10px;
+        font-weight: 600;
+      }
+      .topic-chip {
+        display: inline-block;
+        padding: 8px 14px;
+        border-radius: 999px;
+        background: #00000010;
+        margin-top: 8px;
+        font-weight: 700;
+      }
+      /* Layout for board + sidebar */
+      .play-wrapper {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr;
+        justify-items: center;
+        position: relative;
+      }
+      .board {
+        margin-top: 18px;
+        display: grid;
+        grid-template-columns: repeat(5, 110px);
+        grid-auto-rows: 140px;
+        gap: 16px;
+        perspective: 1000px; /* perspective on the board (parent) */
+      }
+      .win-banner {
+        display: none;
+        margin-top: 10px;
+        padding: 10px 16px;
+        border-radius: 16px;
+        background: #d9ffd6;
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+        font-weight: 800;
+      }
+      .win-banner.show {
+        display: inline-block;
+      }
+
+      /* Sidebar fixed to the right */
+      .sidebar {
+        position: fixed;
+        right: 24px;
+        top: 120px;
+        width: 220px;
+        padding: 16px;
+        background: #ffffff;
+        border-radius: 18px;
+        box-shadow: 0 8px 0 #00000010, 0 12px 24px rgba(0, 0, 0, 0.12);
+        border: 3px solid #e9f3ff;
+        font-weight: 700;
+      }
+      .stat {
+        display: flex;
+        justify-content: space-between;
+        margin: 8px 0;
+      }
+      .restart-btn {
+        margin-top: 10px;
+        width: 100%;
+        padding: 10px 12px;
+        border: 0;
+        border-radius: 12px;
+        background: linear-gradient(180deg, #8cc8ff 0%, #6db7ff 100%);
+        color: #073b6d;
+        font-weight: 800;
+        cursor: pointer;
+        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+        transition: transform 140ms ease, filter 140ms ease;
+      }
+      .restart-btn:hover {
+        transform: translateY(-2px);
+        filter: brightness(1.05);
+      }
+      .restart-btn:active {
+        transform: translateY(0);
+      }
+
+      /* Card styles */
+      .card {
+        width: 110px;
+        height: 140px;
+        position: relative;
+        cursor: pointer;
+        border-radius: 16px;
+        /* do NOT rotate/scale the outer during the flip */
+        will-change: transform;
+      }
+
+      .card:not(.is-flipped):not(.is-matched):hover {
+        transform: translateY(-3px) rotateZ(-1deg);
+      }
+      .card-inner {
+        position: absolute;
+        inset: 0;
+        border-radius: 16px;
+        transform-style: preserve-3d; /* allow front/back to exist in 3D */
+        transition: transform 600ms cubic-bezier(0.2, 0.8, 0.2, 1);
+        transform: rotateY(0deg); /* default: showing the back */
+        will-change: transform;
+      }
+      .card .card-inner {
+        transform: translateZ(0);
+      }
+      .card.is-flipped .card-inner {
+        transform: rotateY(180deg); /* flip the inner wrapper only */
+      }
+      .card:not(.is-flipped):not(.is-matched):hover {
+        transform: translateY(-3px) rotateZ(-1deg);
+      }
+      .card.is-matched {
+        cursor: default;
+      }
+
+      .face {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        border-radius: 16px;
+        backface-visibility: hidden; /* crucial: hide the back face when turned away */
+        box-shadow: 0 10px 0 #00000010, 0 16px 30px rgba(0, 0, 0, 0.16);
+        border: 3px solid #f0f0f0;
+        overflow: hidden;
+      }
+
+      .face::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: radial-gradient(
+          120% 80% at 20% 10%,
+          rgba(255, 255, 255, 0.65) 0%,
+          rgba(255, 255, 255, 0.15) 40%,
+          transparent 60%
+        );
+        mix-blend-mode: screen;
+      }
+      .face.back {
+        background: repeating-linear-gradient(
+            45deg,
+            #f3f8ff 0 8px,
+            #eaf3ff 8px 16px
+          ),
+          linear-gradient(180deg, #ffffff 0%, #eaf4ff 100%);
+        /* keep readable size; we’ll still use ::after for the 🎴 */
+        font-size: 28px;
+        color: #073b6d;
+        transform: rotateY(0deg);
+      }
+      .face.back::after {
+        content: "🎴";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 28px;
+        opacity: 0.9;
+        filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.12));
+      }
+      .face.front {
+        background: #ffffff;
+        font-size: 42px;
+        transform: rotateY(180deg);
+      }
+      @keyframes glowPulse {
+        0% {
+          box-shadow: 0 10px 0 #00000010, 0 16px 30px rgba(0, 0, 0, 0.16),
+            0 0 0 0 rgba(140, 200, 255, 0);
+        }
+        50% {
+          box-shadow: 0 10px 0 #00000010, 0 16px 30px rgba(0, 0, 0, 0.16),
+            0 0 22px 6px rgba(140, 200, 255, 0.55);
+        }
+        100% {
+          box-shadow: 0 10px 0 #00000010, 0 16px 30px rgba(0, 0, 0, 0.16),
+            0 0 0 0 rgba(140, 200, 255, 0);
+        }
+      }
+      .card.is-matched .face.front {
+        animation: glowPulse 600ms ease-out 1;
+      }
+
+      /* Fun Fact Modal */
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.45);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 50;
+        opacity: 0;
+        transition: opacity 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      .modal-overlay.show {
+        display: flex;
+      }
+      .modal-overlay.is-open {
+        opacity: 1;
+      }
+      .modal-card {
+        width: min(520px, 92vw);
+        background: #ffffff;
+        border-radius: 20px;
+        padding: 22px 20px 18px;
+        box-shadow: 0 14px 0 #00000010, 0 22px 44px rgba(0, 0, 0, 0.18);
+        border: 3px solid #e9f3ff;
+        text-align: center;
+        font-weight: 700;
+        opacity: 0;
+        transform: scale(0.95);
+        transition: opacity 260ms cubic-bezier(0.2, 0.8, 0.2, 1),
+          transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      .modal-card.is-open {
+        opacity: 1;
+        transform: scale(1);
+      }
+      .modal-title {
+        margin: 0 0 8px;
+        font-size: 1.6rem;
+      }
+      .modal-text {
+        margin: 0 0 16px;
+        font-size: 1.05rem;
+      }
+      .modal-ok {
+        display: inline-block;
+        padding: 10px 18px;
+        border-radius: 12px;
+        border: 0;
+        background: linear-gradient(180deg, #7bd389 0%, #57c36a 100%);
+        color: #0e4325;
+        font-weight: 800;
+        cursor: pointer;
+        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+        transition: transform 140ms ease, filter 140ms ease;
+      }
+      .modal-ok:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.04);
+      }
+      .modal-ok:active {
+        transform: translateY(0);
+      }
+
+      /* Prevent background scroll when any modal is open */
+      body.modal-open {
+        overflow: hidden;
+      }
+
+      /* Disable board interactions when a modal is open */
+      #board.disabled {
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="game-shell">
+      <header class="game-header">
+        <h1 class="title">Let’s play! 🎮</h1>
+        <div id="topicDisplay" class="topic-chip">Topic: ...</div>
+        <a class="back-link" href="index.html">⬅ Back to topics</a>
+      </header>
+
+      <section class="play-wrapper" aria-live="polite">
+        <div id="board" class="board" aria-label="Memory board"></div>
+        <aside class="sidebar" aria-label="Game stats and controls">
+          <div class="stat"><span>Moves</span><span id="moves">0</span></div>
+          <div class="stat"><span>Time</span><span id="timer">00:00</span></div>
+          <div class="stat">
+            <span>Pairs Found</span><span><span id="pairs">0</span>/10</span>
+          </div>
+          <button id="restartBtn" class="restart-btn" type="button">
+            Restart
+          </button>
+        </aside>
+      </section>
+    </main>
+
+    <!-- Fun Fact Modal -->
+    <div
+      id="modalOverlay"
+      class="modal-overlay"
+      aria-modal="true"
+      role="dialog"
+      aria-labelledby="modalTitle"
+      aria-describedby="modalText"
+    >
+      <div class="modal-card">
+        <h2 id="modalTitle" class="modal-title">Fun Fact!</h2>
+        <p id="modalText" class="modal-text">...</p>
+        <button id="modalOk" class="modal-ok" type="button">OK</button>
+      </div>
+    </div>
+
+    <!-- Win Modal -->
+    <div
+      id="winOverlay"
+      class="modal-overlay"
+      aria-modal="true"
+      role="dialog"
+      aria-labelledby="winTitle"
+      aria-describedby="winStats"
+    >
+      <div class="modal-card">
+        <h2 id="winTitle" class="modal-title">You won! 🎉</h2>
+        <div
+          id="winStats"
+          class="modal-text"
+          style="text-align: left; font-weight: 600"
+        >
+          <div
+            style="display: flex; justify-content: space-between; margin: 6px 0"
+          >
+            <span>Total moves</span><span id="winMoves">0</span>
+          </div>
+          <div
+            style="display: flex; justify-content: space-between; margin: 6px 0"
+          >
+            <span>Total pairs</span><span id="winPairs">10</span>
+          </div>
+          <div
+            style="display: flex; justify-content: space-between; margin: 6px 0"
+          >
+            <span>Elapsed time</span><span id="winTime">0:00</span>
+          </div>
+        </div>
+        <button id="playAgainBtn" class="modal-ok" type="button">
+          Play Again
+        </button>
+      </div>
+    </div>
+
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const topic = params.get("topic") || "animals";
+      const prettyMap = {
+        animals: "Animals 🐾",
+        fruits: "Fruits 🍓",
+        space: "Space 🚀",
+      };
+      const topicEl = document.getElementById("topicDisplay");
+      if (topicEl) topicEl.textContent = `Topic: ${prettyMap[topic] || topic}`;
+
+      const topics = {
+        animals: [
+          "🐶",
+          "🐱",
+          "🐭",
+          "🐹",
+          "🐰",
+          "🦊",
+          "🐻",
+          "🐼",
+          "🐨",
+          "🐯",
+          "🦁",
+          "🐮",
+          "🐷",
+          "🐸",
+          "🐵",
+        ],
+        fruits: [
+          "🍎",
+          "🍐",
+          "🍊",
+          "🍋",
+          "🍌",
+          "🍉",
+          "🍇",
+          "🍓",
+          "🍒",
+          "🍑",
+          "🥝",
+          "🍍",
+          "🥭",
+          "🍈",
+          "🫐",
+        ],
+        space: [
+          "🌙",
+          "⭐",
+          "☄️",
+          "🌎",
+          "🛰️",
+          "🚀",
+          "🪐",
+          "🌌",
+          "🌟",
+          "🔭",
+          "👩‍🚀",
+          "🌠",
+          "🌖",
+          "🛸",
+          "🌞",
+        ],
+      };
+
+      const boardEl = document.getElementById("board");
+      const movesEl = document.getElementById("moves");
+      const timerEl = document.getElementById("timer");
+      const pairsEl = document.getElementById("pairs");
+      const restartBtn = document.getElementById("restartBtn");
+      const modalOverlay = document.getElementById("modalOverlay");
+      const modalText = document.getElementById("modalText");
+      const modalOk = document.getElementById("modalOk");
+      const winOverlay = document.getElementById("winOverlay");
+      const playAgainBtn = document.getElementById("playAgainBtn");
+      const winMovesEl = document.getElementById("winMoves");
+      const winPairsEl = document.getElementById("winPairs");
+      const winTimeEl = document.getElementById("winTime");
+      const bodyEl = document.body;
+
+      let deck = [];
+      let firstCard = null;
+      let secondCard = null;
+      let lockBoard = false;
+      let moves = 0;
+      let pairsFound = 0;
+      let modalOpen = false;
+      let elapsedSeconds = 0;
+      let timerId = null;
+
+      function pickTen(topicKey) {
+        const pool = topics[topicKey] || topics.animals;
+        // pick first 10 of the pool for simplicity
+        return pool.slice(0, 10);
+      }
+
+      function shuffle(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+      }
+
+      function buildDeck() {
+        const uniques = pickTen(topic);
+        deck = shuffle(
+          uniques.flatMap((sym, idx) => [
+            { id: `${idx}-a`, symbol: sym, key: `${idx}` },
+            { id: `${idx}-b`, symbol: sym, key: `${idx}` },
+          ])
+        );
+      }
+
+      function renderBoard() {
+        boardEl.innerHTML = "";
+        deck.forEach((cardData) => {
+          const card = document.createElement("button");
+          card.className = "card";
+          card.setAttribute("type", "button");
+          card.dataset.key = cardData.key;
+          card.dataset.id = cardData.id;
+          card.innerHTML = `
+            <div class="card-inner">
+              <div class="face back" aria-hidden="true">🎴</div>
+              <div class="face front">${cardData.symbol}</div>
+            </div>
+          `;
+          card.addEventListener("click", () => onFlip(card));
+          boardEl.appendChild(card);
+        });
+      }
+
+      function onFlip(cardEl) {
+        if (lockBoard) return;
+        if (
+          cardEl.classList.contains("is-flipped") ||
+          cardEl.classList.contains("is-matched")
+        )
+          return;
+        if (firstCard && firstCard === cardEl) return;
+
+        cardEl.classList.add("is-flipped");
+
+        if (!firstCard) {
+          firstCard = cardEl;
+          return;
+        }
+
+        secondCard = cardEl;
+        lockBoard = true;
+        moves += 1;
+        movesEl.textContent = String(moves);
+
+        const isMatch = firstCard.dataset.key === secondCard.dataset.key;
+        if (isMatch) {
+          setMatched(firstCard, secondCard);
+          pairsFound += 1;
+          pairsEl.textContent = String(pairsFound);
+          showRandomFact();
+          checkWin();
+        } else {
+          setTimeout(() => {
+            firstCard.classList.remove("is-flipped");
+            secondCard.classList.remove("is-flipped");
+            resetPick();
+          }, 900);
+        }
+      }
+
+      function setMatched(a, b) {
+        a.classList.add("is-matched");
+        b.classList.add("is-matched");
+      }
+
+      function resetPick() {
+        [firstCard, secondCard] = [null, null];
+        lockBoard = false;
+      }
+
+      function resetGame() {
+        moves = 0;
+        pairsFound = 0;
+        movesEl.textContent = "0";
+        pairsEl.textContent = "0";
+        closeModal();
+        closeWinModal();
+        // reset/start timer
+        if (timerId) clearInterval(timerId);
+        elapsedSeconds = 0;
+        timerEl.textContent = formatTime(elapsedSeconds);
+        timerId = setInterval(() => {
+          elapsedSeconds += 1;
+          timerEl.textContent = formatTime(elapsedSeconds);
+        }, 1000);
+        buildDeck();
+        renderBoard();
+        resetPick();
+      }
+
+      function checkWin() {
+        if (pairsFound >= 10) {
+          if (timerId) clearInterval(timerId);
+          // ensure fun fact modal is closed
+          closeModal();
+          showWinModal();
+        }
+      }
+
+      restartBtn.addEventListener("click", resetGame);
+      modalOk.addEventListener("click", closeModal);
+      playAgainBtn.addEventListener("click", () => {
+        resetGame();
+      });
+
+      // init
+      resetGame();
+
+      /* Facts data and modal helpers */
+      const facts = {
+        animals: [
+          "A group of flamingos is called a flamboyance!",
+          "Elephants are the only mammals that can’t jump.",
+          "A snail can sleep for three years at a time.",
+          "Octopuses have three hearts and blue blood!",
+          "Cows have best friends and get stressed when separated.",
+          "Honeybees can recognize human faces.",
+          "The heart of a shrimp is located in its head.",
+          "Fact 8",
+          "Fact 9",
+          "Fact 10",
+        ],
+        fruits: [
+          "Bananas are berries, but strawberries aren’t!",
+          "Pineapples take about two years to grow.",
+          "Apples float because they’re 25% air.",
+          "Kiwis were once called Chinese gooseberries.",
+          "Tomatoes are fruits in botany!",
+          "There are over 7,500 varieties of apples.",
+          "fact 7",
+          "fact 8",
+          "fact 9",
+          "fact 10",
+        ],
+        space: [
+          "A day on Venus is longer than a year on Venus.",
+          "Neutron stars can spin 600 times per second!",
+          "Space is completely silent—sound can’t travel there.",
+          "There are more trees on Earth than stars in the Milky Way.",
+          "Saturn could float in water (it’s very low density).",
+          "One million Earths could fit inside the Sun!",
+          "fact 7",
+          "fact 8",
+          "fact 9",
+          "fact 10",
+        ],
+      };
+
+      function randomItem(arr) {
+        return arr[Math.floor(Math.random() * arr.length)];
+      }
+
+      function showRandomFact() {
+        const set = facts[topic] || facts.animals;
+        const fact = randomItem(set);
+        modalText.textContent = fact;
+        openModal();
+      }
+
+      function openModal() {
+        modalOpen = true;
+        modalOverlay.classList.add("show");
+        requestAnimationFrame(() => {
+          modalOverlay.classList.add("is-open");
+          modalOverlay.querySelector(".modal-card").classList.add("is-open");
+        });
+        // Keep the board locked until modal is closed
+        lockBoard = true;
+        boardEl.classList.add("disabled");
+        bodyEl.classList.add("modal-open");
+      }
+
+      function closeModal() {
+        if (!modalOpen) return;
+        modalOpen = false;
+        modalOverlay.classList.remove("is-open");
+        modalOverlay.querySelector(".modal-card").classList.remove("is-open");
+        setTimeout(() => {
+          modalOverlay.classList.remove("show");
+        }, 260);
+        // Allow gameplay to continue after acknowledging
+        resetPick();
+        boardEl.classList.remove("disabled");
+        bodyEl.classList.remove("modal-open");
+      }
+
+      function showWinModal() {
+        // populate stats
+        winMovesEl.textContent = String(moves);
+        winPairsEl.textContent = "10";
+        winTimeEl.textContent = formatTime(elapsedSeconds);
+        // lock the board and show overlay
+        lockBoard = true;
+        winOverlay.classList.add("show");
+        requestAnimationFrame(() => {
+          winOverlay.classList.add("is-open");
+          winOverlay.querySelector(".modal-card").classList.add("is-open");
+        });
+        boardEl.classList.add("disabled");
+        bodyEl.classList.add("modal-open");
+      }
+
+      function closeWinModal() {
+        winOverlay.classList.remove("is-open");
+        winOverlay.querySelector(".modal-card").classList.remove("is-open");
+        setTimeout(() => {
+          winOverlay.classList.remove("show");
+        }, 260);
+        boardEl.classList.remove("disabled");
+        bodyEl.classList.remove("modal-open");
+      }
+
+      function formatTime(totalSeconds) {
+        const m = Math.floor(totalSeconds / 60);
+        const s = totalSeconds % 60;
+        return `${m}:${String(s).padStart(2, "0")}`;
+      }
+    </script>
+  </body>
+</html>
