@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flip Card Memory Game</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <main class="home-container">
+      <header class="game-header">
+        <h1 class="game-title">Flip Card Memory Game</h1>
+        <p class="game-subtitle">Choose your topic to start playing</p>
+      </header>
+
+      <section class="topics-section" role="region" aria-label="Game topics">
+        <div class="topics-grid">
+          <button
+            class="topic-card animals-card"
+            data-topic="animals"
+            aria-label="Play Animals memory game"
+            tabindex="1"
+          >
+            <div class="card-content">
+              <div class="card-emoji" role="img" aria-label="Animals emoji">
+                🐾
+              </div>
+              <h2 class="card-title">Animals</h2>
+            </div>
+          </button>
+
+          <button
+            class="topic-card fruits-card"
+            data-topic="fruits"
+            aria-label="Play Fruits memory game"
+            tabindex="2"
+          >
+            <div class="card-content">
+              <div class="card-emoji" role="img" aria-label="Fruits emoji">
+                🍓
+              </div>
+              <h2 class="card-title">Fruits</h2>
+            </div>
+          </button>
+
+          <button
+            class="topic-card space-card"
+            data-topic="space"
+            aria-label="Play Space memory game"
+            tabindex="3"
+          >
+            <div class="card-content">
+              <div class="card-emoji" role="img" aria-label="Space emoji">
+                🚀
+              </div>
+              <h2 class="card-title">Space</h2>
+            </div>
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
